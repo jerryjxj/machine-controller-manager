@@ -8,6 +8,7 @@ import (
 type MachineInterface interface {
 	RESTClient() rest.Interface
 	AWSMachineClassesGetter
+	AliyunMachineClassesGetter
 	AzureMachineClassesGetter
 	GCPMachineClassesGetter
 	MachinesGetter
@@ -25,6 +26,10 @@ type MachineClient struct {
 
 func (c *MachineClient) AWSMachineClasses(namespace string) AWSMachineClassInterface {
 	return newAWSMachineClasses(c, namespace)
+}
+
+func (c *MachineClient) AliyunMachineClasses(namespace string) AliyunMachineClassInterface {
+	return newAliyunMachineClasses(c, namespace)
 }
 
 func (c *MachineClient) AzureMachineClasses(namespace string) AzureMachineClassInterface {
