@@ -55,6 +55,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&OpenStackMachineClass{},
 		&OpenStackMachineClassList{},
 
+		&AliyunMachineClass{},
+		&AliyunMachineClassList{},
+
 		&AWSMachineClass{},
 		&AWSMachineClassList{},
 
