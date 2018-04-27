@@ -70,6 +70,7 @@ func NewController(
 	awsMachineClassInformer machineinformers.AWSMachineClassInformer,
 	azureMachineClassInformer machineinformers.AzureMachineClassInformer,
 	gcpMachineClassInformer machineinformers.GCPMachineClassInformer,
+	aliyunMachineClassInformer machineinformers.AliyunMachineClassInformer,
 	machineInformer machineinformers.MachineInformer,
 	machineSetInformer machineinformers.MachineSetInformer,
 	machineDeploymentInformer machineinformers.MachineDeploymentInformer,
@@ -90,6 +91,7 @@ func NewController(
 		awsMachineClassQueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "awsmachineclass"),
 		azureMachineClassQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "azuremachineclass"),
 		gcpMachineClassQueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "gcpmachineclass"),
+		aliyunMachineClassQueue:	workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "aliyunmachineclass"),
 		machineQueue:               workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "machine"),
 		machineSetQueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "machineset"),
 		machineDeploymentQueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "machinedeployment"),
@@ -127,6 +129,7 @@ func NewController(
 	controller.awsMachineClassLister = awsMachineClassInformer.Lister()
 	controller.azureMachineClassLister = azureMachineClassInformer.Lister()
 	controller.gcpMachineClassLister = gcpMachineClassInformer.Lister()
+	controller.aliyunMachineClassLister = aliyunMachineClassInformer.Lister()
 	controller.nodeLister = nodeInformer.Lister()
 	controller.machineLister = machineInformer.Lister()
 	controller.machineSetLister = machineSetInformer.Lister()
@@ -138,6 +141,7 @@ func NewController(
 	controller.awsMachineClassSynced = awsMachineClassInformer.Informer().HasSynced
 	controller.azureMachineClassSynced = azureMachineClassInformer.Informer().HasSynced
 	controller.gcpMachineClassSynced = gcpMachineClassInformer.Informer().HasSynced
+	controller.aliyunMachineClassSynced = aliyunMachineClassInformer.Informer().HasSynced
 	controller.nodeSynced = nodeInformer.Informer().HasSynced
 	controller.machineSynced = machineInformer.Informer().HasSynced
 	controller.machineSetSynced = machineSetInformer.Informer().HasSynced
@@ -219,6 +223,24 @@ func NewController(
 	gcpMachineClassInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    controller.gcpMachineClassAdd,
 		UpdateFunc: controller.gcpMachineClassUpdate,
+	})
+
+	// Aliyun Controller Informers
+	machineDeploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: controller.machineDeploymentToAliyunMachineClassDelete,
+	})
+
+	machineSetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: controller.machineSetToAliyunMachineClassDelete,
+	})
+
+	machineInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: controller.machineToAliyunMachineClassDelete,
+	})
+
+	aliyunMachineClassInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.aliyunMachineClassAdd,
+		UpdateFunc: controller.aliyunMachineClassUpdate,
 	})
 
 	/* Node Controller Informers - Don't remove this, saved for future use case.
@@ -327,6 +349,7 @@ type controller struct {
 	awsMachineClassLister       machinelisters.AWSMachineClassLister
 	azureMachineClassLister     machinelisters.AzureMachineClassLister
 	gcpMachineClassLister       machinelisters.GCPMachineClassLister
+	aliyunMachineClassLister	machinelisters.AliyunMachineClassLister
 	machineLister               machinelisters.MachineLister
 	machineSetLister            machinelisters.MachineSetLister
 	machineDeploymentLister     machinelisters.MachineDeploymentLister
@@ -338,6 +361,7 @@ type controller struct {
 	awsMachineClassQueue       workqueue.RateLimitingInterface
 	azureMachineClassQueue     workqueue.RateLimitingInterface
 	gcpMachineClassQueue       workqueue.RateLimitingInterface
+	aliyunMachineClassQueue	   workqueue.RateLimitingInterface
 	machineQueue               workqueue.RateLimitingInterface
 	machineSetQueue            workqueue.RateLimitingInterface
 	machineDeploymentQueue     workqueue.RateLimitingInterface
@@ -349,6 +373,7 @@ type controller struct {
 	awsMachineClassSynced       cache.InformerSynced
 	azureMachineClassSynced     cache.InformerSynced
 	gcpMachineClassSynced       cache.InformerSynced
+	aliyunMachineClassSynced	cache.InformerSynced
 	machineSynced               cache.InformerSynced
 	machineSetSynced            cache.InformerSynced
 	machineDeploymentSynced     cache.InformerSynced
@@ -361,11 +386,12 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.awsMachineClassQueue.ShutDown()
 	defer c.azureMachineClassQueue.ShutDown()
 	defer c.gcpMachineClassQueue.ShutDown()
+	defer c.aliyunMachineClassQueue.ShutDown()
 	defer c.machineQueue.ShutDown()
 	defer c.machineSetQueue.ShutDown()
 	defer c.machineDeploymentQueue.ShutDown()
 
-	if !cache.WaitForCacheSync(stopCh, c.secretSynced, c.nodeSynced, c.openStackMachineClassSynced, c.awsMachineClassSynced, c.azureMachineClassSynced, c.gcpMachineClassSynced, c.machineSynced, c.machineSetSynced, c.machineDeploymentSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.secretSynced, c.nodeSynced, c.openStackMachineClassSynced, c.awsMachineClassSynced, c.azureMachineClassSynced, c.gcpMachineClassSynced, c.aliyunMachineClassSynced, c.machineSynced, c.machineSetSynced, c.machineDeploymentSynced) {
 		runtimeutil.HandleError(fmt.Errorf("Timed out waiting for caches to sync"))
 		return
 	}
@@ -380,6 +406,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		createWorker(c.awsMachineClassQueue, "ClusterAWSMachineClass", maxRetries, true, c.reconcileClusterAWSMachineClassKey, stopCh, &waitGroup)
 		createWorker(c.azureMachineClassQueue, "ClusterAzureMachineClass", maxRetries, true, c.reconcileClusterAzureMachineClassKey, stopCh, &waitGroup)
 		createWorker(c.gcpMachineClassQueue, "ClusterGCPMachineClass", maxRetries, true, c.reconcileClusterGCPMachineClassKey, stopCh, &waitGroup)
+		createWorker(c.aliyunMachineClassQueue, "ClusterAliyunMachineClass", maxRetries, true, c.reconcileClusterAliyunMachineClassKey, stopCh, &waitGroup)
 		createWorker(c.nodeQueue, "ClusterNode", maxRetries, true, c.reconcileClusterNodeKey, stopCh, &waitGroup)
 		createWorker(c.machineQueue, "ClusterMachine", maxRetries, true, c.reconcileClusterMachineKey, stopCh, &waitGroup)
 		createWorker(c.nodeToMachineQueue, "ClusterNodeToMachine", maxRetries, true, c.reconcileClusterNodeToMachineKey, stopCh, &waitGroup)

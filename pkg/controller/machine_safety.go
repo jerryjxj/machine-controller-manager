@@ -144,6 +144,7 @@ func (c *controller) checkVMObjects(wg *sync.WaitGroup) {
 	go c.checkOSMachineClass()
 	go c.checkAzureMachineClass()
 	go c.checkGCPMachineClass()
+	go c.checkAliyunMachineClass()
 
 	wg.Done()
 }
@@ -285,6 +286,28 @@ func (c *controller) checkGCPMachineClass() {
 	}
 
 	for _, machineClass := range GCPMachineClasses {
+
+		var machineClassInterface interface{}
+		machineClassInterface = machineClass
+
+		c.checkMachineClass(
+			machineClassInterface,
+			machineClass.Spec.SecretRef,
+			machineClass.Name,
+			machineClass.Kind,
+		)
+	}
+}
+
+// checkAliyunMachineClass checks for orphan VMs in AliyunMachinesClasses
+func (c *controller) checkAliyunMachineClass() {
+	AliyunMachineClasses, err := c.aliyunMachineClassLister.List(labels.Everything())
+	if err != nil {
+		glog.Error("Safety-Net: Error getting machineClasses")
+		return
+	}
+
+	for _, machineClass := range AliyunMachineClasses {
 
 		var machineClassInterface interface{}
 		machineClassInterface = machineClass
