@@ -13,6 +13,7 @@ managevm
 controller_manager
 mcm.out
 kubectl
+main
 
 ./machine-controller-manager
 ./managevm
