@@ -35,10 +35,10 @@ import (
 // AlicloudDriver is the driver struct for holding Alicloud machine information
 type AlicloudDriver struct {
 	AlicloudMachineClass *v1alpha1.AlicloudMachineClass
-	CloudConfig        *corev1.Secret
-	UserData           string
-	MachineID          string
-	MachineName        string
+	CloudConfig          *corev1.Secret
+	UserData             string
+	MachineID            string
+	MachineName          string
 }
 
 // runInstanceRequest is the request struct for api RunInstances
@@ -214,7 +214,7 @@ func (c *AlicloudDriver) getVMDetails(machineID string) ([]ecs.Instance, error) 
 		if strings.Contains(c.AlicloudMachineClass.Spec.Tags.Tag1Key, "kubernetes.io/cluster/") {
 			searchClusterName = c.AlicloudMachineClass.Spec.Tags.Tag1Key
 		}
-		if strings.Contains(c.AlicloudMachineClass.Spec.Tags.Tag1Key, "kubernetes.io/cluster/") {
+		if strings.Contains(c.AlicloudMachineClass.Spec.Tags.Tag2Key, "kubernetes.io/role/") {
 			searchNodeRole = c.AlicloudMachineClass.Spec.Tags.Tag2Key
 		}
 	}
@@ -263,7 +263,7 @@ func (c *AlicloudDriver) GetVMs(machineID string) (VMs, error) {
 }
 
 func (c *AlicloudDriver) encodeMachineID(region, machineID string) string {
-	return fmt.Sprintf("aliyun:///%s/%s", region, machineID)
+	return fmt.Sprintf("alicloud:///%s/%s", region, machineID)
 }
 
 func (c *AlicloudDriver) decodeMachineID(id string) string {
@@ -272,8 +272,8 @@ func (c *AlicloudDriver) decodeMachineID(id string) string {
 }
 
 func (c *AlicloudDriver) getEcsClient() (*ecs.Client, error) {
-	accessKeyID := strings.TrimSpace(string(c.CloudConfig.Data["alicloudAccessKeyId"]))
-	accessKeySecret := strings.TrimSpace(string(c.CloudConfig.Data["alicloudAccessKeySecret"]))
+	accessKeyID := strings.TrimSpace(string(c.CloudConfig.Data[v1alpha1.AlicloudAccessKeyID]))
+	accessKeySecret := strings.TrimSpace(string(c.CloudConfig.Data[v1alpha1.AlicloudAccessKeySecret]))
 	region := c.AlicloudMachineClass.Spec.Region
 
 	var ecsClient *ecs.Client

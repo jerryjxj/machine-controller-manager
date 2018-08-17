@@ -1152,6 +1152,11 @@ const (
 	OpenStackClientCert string = "clientCert"
 	// OpenStackClientKey is a constant for a key name that is part of the OpenStack cloud credentials.
 	OpenStackClientKey string = "clientKey"
+
+	// AlicloudAccessKeyID is a constant for a key name that is part of the Alibaba cloud credentials.
+	AlicloudAccessKeyID string = "alicloudAccessKeyId"
+	// AlicloudAccessKeySecret is a constant for a key name that is part of the Alibaba cloud credentials.
+	AlicloudAccessKeySecret string = "alicloudAccessKeySecret"
 )
 
 /********************** AlicloudMachineClass APIs ***************/
